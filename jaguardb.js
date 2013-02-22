@@ -1,0 +1,276 @@
+var path = require('path');
+var fs = require('fs');
+
+exports.jaguarDb = function jaguarDb() {
+
+
+	this.dbPath = null;
+	this.indexFile = null;
+	this.indexData = { nextId: 1, indexes: [], documents: [] };
+	this.logging = true;
+
+
+	// Use our own custom internal logger so that we don't depend 
+	// on any other library. We'll probably get rid of this once 
+	// this project reaches certain maturity.
+	var _log = function(type, message) {
+		var logging = true;
+		if(logging) {
+			if (message === undefined) {
+				// default to INFO. The message comes in the first 
+				// parameter (awkward, but functional).
+				console.log('INFO: %s', type);
+			}
+			else {
+				console.log('%s: %s', type, message)
+			}
+		}
+	}
+
+	// stolen from http://stackoverflow.com/a/2673229/446681
+	var _isEmptyObject = function (obj) {
+	  return Object.getOwnPropertyNames(obj).length === 0;
+	}
+
+	// ----------------------------------
+	// Connect to a database
+	// ----------------------------------
+	this.connect = function(_dbPath, cb) {
+		_log('Connecting to: ' + _dbPath);
+		this.dbPath = _dbPath;
+		this.indexFile = path.join(this.dbPath, 'index.json');
+		var _this = this;
+		fs.exists(_this.indexFile, function(exists) {
+			if (exists) {
+				_log('Index file already exists');
+				fs.readFile(_this.indexFile, function(err, data) {
+					if(err) {
+						_log('Index file already exists, but could not be read.');
+						cb(err);
+					}
+					else {
+						_log('Index file read');
+						_this.indexData = JSON.parse(data);
+						cb(null);
+					}
+				});
+			}
+			else {
+				// create an empty file
+				_log('Creating index file: ' + _this.indexFile);
+				fs.writeFile(_this.indexFile, JSON.stringify(_this.indexData), function(err) {
+					if (err) {
+						_log('ERROR', 'Could not create index file. Error: ' + err);
+						cb(err);
+					}
+					else {
+						_log('Index file created');
+						cb(null);
+					}
+				});
+			}
+		});
+	}
+
+	// ----------------------------------
+	// Insert a new document in the database
+	// ----------------------------------
+	this.insert = function(data, cb) {
+		console.log('about to insert');
+		data._id = this.indexData.nextId;
+		this.indexData.nextId++;
+
+		// update index 
+		var indexDoc = {};
+		indexDoc._id = data._id;
+		// TODO: add indexes fields, e.g. indexDoc.ix1 = data.ix1;
+		this.indexData.documents.push(indexDoc);
+
+		var dbPath = this.dbPath;
+		fs.writeFile(this.indexFile, JSON.stringify(this.indexData), function(err) {
+			if (err) {
+				_log('ERROR', 'Could not update index file. Error: ' + err);
+				cb(err);
+			}
+			else {
+				_log('Index file updated');
+				// save full document
+				var documentFile = path.join(dbPath, data._id.toString() + '.json');
+				fs.writeFile(documentFile, JSON.stringify(data), function(err) {
+					if (err) {
+						_log('ERROR', 'Could not insert document. Error: ' + err);
+						cb(err);
+					}
+					else {
+						_log('Document inserted');
+						cb(null, data);
+					}
+				});
+			}
+		});
+	}
+
+	// ----------------------------------
+	// Update an existing document in the database
+	// ----------------------------------
+	this.update = function(data, cb) {
+		console.log('about to update');
+		if(data._id === undefined) {
+			cb('No _id was found on document');
+			return;
+		}
+
+		// TODO: the index file will need to be updated when we implement indexes
+
+		// save full document
+		var documentFile = path.join(this.dbPath, data._id.toString() + '.json');
+		fs.writeFile(documentFile, JSON.stringify(data), function(err) {
+			if (err) {
+				_log('ERROR', 'Could not update document. Error: ' + err);
+				cb(err);
+			}
+			else {
+				_log('Document updated');
+				cb(null, data);
+			}
+		});
+	}
+
+	// ----------------------------------
+	// Find documents in the database
+	// ----------------------------------
+	this.find = function(query, fields, cb) {
+
+		query = query || {};		// default to select all documents
+		fields = fields || {};	// default to select all fields
+
+		var isFindAll = _isEmptyObject(query);
+		if(isFindAll) {
+			_log('Find All');
+			this._getAll(this._filterFields, fields, cb); 
+			return;
+		}
+
+		_log('Find Some');
+		this._getSome(query, this._filterFields, fields, cb);
+	}
+
+	// Internal method.
+	// Given a list of documents creates a new list of documents but
+	// only with the fields indicated in filteredFields.
+	this._filterFields = function(documents, filterFields, cb) {
+		var isAllFields = _isEmptyObject(filterFields);
+		if(isAllFields) {
+			// No filter required, we are done.
+			cb(null, documents);
+			return;
+		}
+
+		try {
+			var fields = Object.getOwnPropertyNames(filterFields);
+			if(fields.indexOf('_id') === -1) {
+				// Make sure the _id field is always returned. 
+				fields.push('_id');
+			}
+
+			var i, j;
+			var filteredDocs = [];
+			for(i=0; i<documents.length; i++) {
+
+			  var fullDoc = documents[i];
+			  var doc = {};
+			  for(j=0; j<fields.length; j++) {
+			    var field = fields[j];
+			    if(fullDoc.hasOwnProperty(field)) {
+			      doc[field] = fullDoc[field];
+			    }
+			  }
+
+			  filteredDocs.push(doc);
+			}
+
+			cb(null, filteredDocs);
+		}
+		catch (err) {
+			_log('ERROR', 'Filtering documents: ' + i);
+			cb(err);
+		}
+	}
+
+	// Internal method.
+	// Fetches all documents in the database.
+	//
+	// Notes: 
+	// 		This method blocks!!!
+	// 		Eventually I want to make it async.
+	// 		Also, if I ever I implement indexes then we 
+	//		shouldn't need to read the entire document if the
+	//		information exists on the index file (this is a very
+	//		long term goal.) Most likely YANGI.
+	this._getAll = function(filter, fields, cb) {
+		var i;
+		var documents = this.indexData.documents;
+		var foundDocs = [];
+
+		try {
+			for(i=0; i<documents.length; i++) {
+				var _id = documents[i]._id;
+				var file = path.join(this.dbPath, _id.toString() + '.json');
+				var text = fs.readFileSync(file); // Blocking call
+				var document = JSON.parse(text);
+				foundDocs.push(document);
+			}
+			filter(foundDocs, fields, cb);
+		}
+		catch (err) {
+			_log('ERROR', 'Reading fetching document: ' + i);
+			cb(err);
+		}
+	}
+
+	// Internal method.
+	// Fetches a subset of the documents in the database based on a given query.
+	// Only exact matches on queries are supported (i.e. field = 'value')
+	// Other types of queries are NOT supported yet. (i.e. field != value or field >= 'value')
+	this._getSome = function(query, filter, fields, cb) {
+		try {
+			var filterFields = Object.getOwnPropertyNames(query);
+			var documents = this.indexData.documents;
+			var foundDocs = [];
+
+			for(var i=0; i<documents.length; i++) {
+				var _id = documents[i]._id;
+				var file = path.join(this.dbPath, _id.toString() + '.json');
+				var text = fs.readFileSync(file); // Blocking call
+				var document = JSON.parse(text);
+				if(this.isMatch(document, filterFields, query)) {
+					foundDocs.push(document);
+				}
+			}
+			filter(foundDocs, fields, cb);
+		}
+		catch (err) {
+			_log('ERROR', 'Reading fetching document: ' + i);
+			cb(err);
+		}
+	}
+
+	this.isMatch = function(document, queryFields, queryValues) {
+	  for(var i=0; i<queryFields.length; i++) {
+	    var field = queryFields[i];
+	    if(document.hasOwnProperty(field)) {
+	      if (document[field] !== queryValues[field]) {
+	        // Field present but values does not match.
+	        return false;
+	      }
+	    }
+	    else {
+	      // Field not present
+	      return false;
+	    }
+	  }
+	  return true;
+	} 
+
+};
+
