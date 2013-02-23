@@ -12,7 +12,8 @@ exports.jaguarDb = function jaguarDb() {
 
 	// Use our own custom internal logger so that we don't depend 
 	// on any other library. We'll probably get rid of this once 
-	// this project reaches certain maturity.
+	// this project reaches certain maturity. A better approach
+	// would be to raise events as things happen.
 	var _log = function(type, message) {
 		var logging = true;
 		if(logging) {
@@ -40,9 +41,34 @@ exports.jaguarDb = function jaguarDb() {
 		this.dbPath = _dbPath;
 		this.indexFile = path.join(this.dbPath, 'index.json');
 		var _this = this;
+		
+		// Check if the path exists and it's indeed a directory.
+		fs.stat(_dbPath, function(err, stat) {
+			if (err) {
+				if(err.code == 'ENOENT') {
+					_log('Creating directory ' + _this.dbPath)
+					fs.mkdirSync(_this.dbPath);
+				}
+				else {
+					cb(err);
+					return;
+				}			
+			}
+			else {
+				if(!stat.isDirectory()) {
+					cb(_this.dbPath + " exists but it's not a folder!");
+					return;
+				}
+			}
+
+			_this._loadIndexData(_this, cb);
+		});
+	}
+
+	this._loadIndexData = function(_this, cb) {
 		fs.exists(_this.indexFile, function(exists) {
 			if (exists) {
-				_log('Index file already exists');
+
 				fs.readFile(_this.indexFile, function(err, data) {
 					if(err) {
 						_log('Index file already exists, but could not be read.');
@@ -54,9 +80,11 @@ exports.jaguarDb = function jaguarDb() {
 						cb(null);
 					}
 				});
+
 			}
 			else {
-				// create an empty file
+
+				// create index file
 				_log('Creating index file: ' + _this.indexFile);
 				fs.writeFile(_this.indexFile, JSON.stringify(_this.indexData), function(err) {
 					if (err) {
@@ -68,6 +96,7 @@ exports.jaguarDb = function jaguarDb() {
 						cb(null);
 					}
 				});
+
 			}
 		});
 	}
@@ -154,6 +183,28 @@ exports.jaguarDb = function jaguarDb() {
 		_log('Find Some');
 		this._getSome(query, this._filterFields, fields, cb);
 	}
+
+	this.findById = function(id, cb) {
+		var file = path.join(this.dbPath, id.toString() + '.json');		
+		fs.readFile(file, function(err, text) {
+			if(err) {
+				if (err.code === 'ENOENT'){
+					// document not found
+					cb(null, null); 
+				}
+				else {		
+					// a true other error			
+					cb(err); 
+				}
+			}
+			else {
+				var document = JSON.parse(text);
+				cb(null, document);
+			}
+		});
+	}
+
+
 
 	// Internal method.
 	// Given a list of documents creates a new list of documents but

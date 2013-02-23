@@ -1,10 +1,11 @@
 var jaguarDb = require('./jaguarDb').jaguarDb;
 var db = new jaguarDb();
 
-db.connect('./data', function(err) {
+db.connect('./data3', function(err) {
 
 	if(err) {
 		console.log('Could not connect: ' + err);
+		return;
 	}
 	else {
 		console.log('Connected!');
