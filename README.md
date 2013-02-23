@@ -24,7 +24,7 @@ simpler, particularly for unit tests or batch processes.
 
 Samples
 ------------
-Adding data to brand new database (demoAdd.js.) **You must create the data folder before running this example**
+Adding data to brand new database (demoAdd.js.) 
 
     var jaguarDb = require('./jaguarDb').jaguarDb;
     var db = new jaguarDb();
