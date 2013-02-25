@@ -10,12 +10,12 @@ The API mimics MongoDB’s API to allow for easy migration of applications using
 
 This database does not support transactions or any of the ACID properties. In fact you should not even consider it a database. 
 
-The API is asynchronous so that the code using it can easily migrated to use a real database. I might provide a synchronous API later on to make its use much simpler, particularly for unit tests or batch processes.
+The API for jaguarDb is asynchronous so that the code using it can easily migrated to use a real database. I might provide a synchronous API later on to make its use much simpler, particularly for unit tests or batch processes.
 
 
-Samples
-------------
-Adding data to brand new database (demoAdd.js.) 
+Basic Samples
+-------------
+**demoAdd.js** shows how to add data to a brand new database. The basic structure is as follow.
 
     var jaguarDb = require('./jaguarDb').jaguarDb;
     var db = new jaguarDb();
@@ -31,7 +31,7 @@ Adding data to brand new database (demoAdd.js.)
     });
 
 
-Query data all documents from the database (demoFind.js)
+**demoFind.js** shows how to query documents from the database. The basic structure is as follow: 
 
     var jaguarDb = require('./jaguarDb').jaguarDb;
     var db = new jaguarDb();
@@ -50,6 +50,38 @@ Query data all documents from the database (demoFind.js)
 You can filter the documents by providing a query object with the fields and attributes to use to filter: The following example will select documents where the title is 'hello'
 
     var query = { title: 'hello' };
+
+
+Sample using Express
+--------------------
+**demoExpress.js** shows how to use jaguarDb with Express.js. You need to install Express.js on your system via **npm install express** before running this example: 
+
+    var express = require('express');
+    var app = express();
+
+    var jaguarDb = require('./jaguarDb').jaguarDb;
+    var db = new jaguarDb();
+
+    db.connect('./data', function(err) {
+      if(err) {
+        console.log('Could not connect to database: ' + err);
+        return;
+      }
+    });
+
+    app.get('/', function(req, res){
+      var query = {}; // all records
+      var fields = {}; // all fields
+      db.find(query, fields, function(err, docs) {
+        if(err) {
+          res.send('Error reading documents: ' + err);
+          return;
+        }
+        // build HTML with your documents
+        var html = "";
+        res.send(html);
+      });
+    });
 
 
 Storage
