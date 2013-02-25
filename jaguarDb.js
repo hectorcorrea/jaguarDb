@@ -13,7 +13,8 @@ exports.jaguarDb = function jaguarDb() {
 	// Use our own custom internal logger so that we don't depend 
 	// on any other library. We'll probably get rid of this once 
 	// this project reaches certain maturity. A better approach
-	// would be to raise events as things happen.
+	// would be to raise events as things happen rather than 
+	// calling the logger but that's for another day.
 	var _log = function(type, message) {
 		var logging = true;
 		if(logging) {
@@ -47,7 +48,7 @@ exports.jaguarDb = function jaguarDb() {
 			if (err) {
 				if(err.code == 'ENOENT') {
 					_log('Creating directory ' + _this.dbPath)
-					fs.mkdirSync(_this.dbPath);
+					fs.mkdirSync(_this.dbPath);  // FYI: blocking call
 				}
 				else {
 					cb(err);
@@ -131,7 +132,7 @@ exports.jaguarDb = function jaguarDb() {
 						cb(err);
 					}
 					else {
-						_log('Document inserted');
+						_log('Document inserted: ' + documentFile);
 						cb(null, data);
 					}
 				});
@@ -159,7 +160,7 @@ exports.jaguarDb = function jaguarDb() {
 				cb(err);
 			}
 			else {
-				_log('Document updated');
+				_log('Document updated: '+ documentFile);
 				cb(null, data);
 			}
 		});
@@ -210,6 +211,7 @@ exports.jaguarDb = function jaguarDb() {
 	// Given a list of documents creates a new list of documents but
 	// only with the fields indicated in filteredFields.
 	this._filterFields = function(documents, filterFields, cb) {
+		_log('filter fields called');
 		var isAllFields = _isEmptyObject(filterFields);
 		if(isAllFields) {
 			// No filter required, we are done.
@@ -217,35 +219,28 @@ exports.jaguarDb = function jaguarDb() {
 			return;
 		}
 
-		try {
-			var fields = Object.getOwnPropertyNames(filterFields);
-			if(fields.indexOf('_id') === -1) {
-				// Make sure the _id field is always returned. 
-				fields.push('_id');
-			}
-
-			var i, j;
-			var filteredDocs = [];
-			for(i=0; i<documents.length; i++) {
-
-			  var fullDoc = documents[i];
-			  var doc = {};
-			  for(j=0; j<fields.length; j++) {
-			    var field = fields[j];
-			    if(fullDoc.hasOwnProperty(field)) {
-			      doc[field] = fullDoc[field];
-			    }
-			  }
-
-			  filteredDocs.push(doc);
-			}
-
-			cb(null, filteredDocs);
+		var fields = Object.getOwnPropertyNames(filterFields);
+		if(fields.indexOf('_id') === -1) {
+			// Make sure the _id field is always returned. 
+			fields.push('_id');
 		}
-		catch (err) {
-			_log('ERROR', 'Filtering documents: ' + i);
-			cb(err);
+
+		var i, j;
+		var filteredDocs = [];
+		for(i=0; i<documents.length; i++) {
+
+		  var fullDoc = documents[i];
+		  var doc = {};
+		  for(j=0; j<fields.length; j++) {
+		    var field = fields[j];
+		    if(fullDoc.hasOwnProperty(field)) {
+		      doc[field] = fullDoc[field];
+		    }
+		  }
+
+		  filteredDocs.push(doc);
 		}
+		cb(null, filteredDocs);
 	}
 
 	// Internal method.
@@ -254,7 +249,7 @@ exports.jaguarDb = function jaguarDb() {
 	// Notes: 
 	// 		This method blocks!!!
 	// 		Eventually I want to make it async.
-	// 		Also, if I ever I implement indexes then we 
+	// 		Also, if I were to implement indexes then we 
 	//		shouldn't need to read the entire document if the
 	//		information exists on the index file (this is a very
 	//		long term goal.) Most likely YANGI.
@@ -262,21 +257,16 @@ exports.jaguarDb = function jaguarDb() {
 		var i;
 		var documents = this.indexData.documents;
 		var foundDocs = [];
+		var _id, file, text, document;
 
-		try {
-			for(i=0; i<documents.length; i++) {
-				var _id = documents[i]._id;
-				var file = path.join(this.dbPath, _id.toString() + '.json');
-				var text = fs.readFileSync(file); // Blocking call
-				var document = JSON.parse(text);
-				foundDocs.push(document);
-			}
-			filter(foundDocs, fields, cb);
+		for(i=0; i<documents.length; i++) {
+			_id = documents[i]._id;
+			file = path.join(this.dbPath, _id.toString() + '.json');
+			text = fs.readFileSync(file); // Blocking call
+			document = JSON.parse(text);
+			foundDocs.push(document);
 		}
-		catch (err) {
-			_log('ERROR', 'Reading fetching document: ' + i);
-			cb(err);
-		}
+		filter(foundDocs, fields, cb);
 	}
 
 	// Internal method.
@@ -284,26 +274,26 @@ exports.jaguarDb = function jaguarDb() {
 	// Only exact matches on queries are supported (i.e. field = 'value')
 	// Other types of queries are NOT supported yet. (i.e. field != value or field >= 'value')
 	this._getSome = function(query, filter, fields, cb) {
-		try {
-			var filterFields = Object.getOwnPropertyNames(query);
-			var documents = this.indexData.documents;
-			var foundDocs = [];
+		var _id, file, text, document;
+		var filterFields = Object.getOwnPropertyNames(query);
+		var documents = this.indexData.documents;
+		var foundDocs = [];
 
-			for(var i=0; i<documents.length; i++) {
-				var _id = documents[i]._id;
-				var file = path.join(this.dbPath, _id.toString() + '.json');
-				var text = fs.readFileSync(file); // Blocking call
-				var document = JSON.parse(text);
-				if(this.isMatch(document, filterFields, query)) {
-					foundDocs.push(document);
-				}
+		_log('start reading');
+		for(var i=0; i<documents.length; i++) {
+			_id = documents[i]._id;
+			file = path.join(this.dbPath, _id.toString() + '.json');
+			text = fs.readFileSync(file); // Blocking call
+			// _log('  Read ' + file);
+			// _log('  ' + text);
+			document = JSON.parse(text);
+			// console.dir(document);
+			if(this.isMatch(document, filterFields, query)) {
+				foundDocs.push(document);
 			}
-			filter(foundDocs, fields, cb);
 		}
-		catch (err) {
-			_log('ERROR', 'Reading fetching document: ' + i);
-			cb(err);
-		}
+		_log('done reading');
+		filter(foundDocs, fields, cb);
 	}
 
 	this.isMatch = function(document, queryFields, queryValues) {
