@@ -86,12 +86,26 @@ Sample using Express
 
 Storage
 -------
-Data is stored in one directory per database. A master file "index.json" contains the list of documents in the database plus other general information about the database. 
+Data is stored in one directory per database. A master file "index.json" contains the list of documents in the database plus other general information about the database (e.g. list of indexes, list of ids, and list of indexed values.) 
 
 Each document is automatically assigned an _id field with a sequential value. 
 
 One individual JSON file is created for each document, these files are named "n.json" where n is the value of the _id for the document.
 
+The structure of the index.json file is more or less as follows:
+
+    {
+      "nextId":3,
+      "indexes":["title"],
+      "documents":[
+        {"_id":1,"title":"one"},
+        {"_id":2,"title":"two"}
+      ]
+    }
+
+The structure of a document file (say 1.json) is more or less as follows: 
+
+    {"_id":1, title":"one","content":"blah blah blah"}
 
 
 Limitations (a lot)

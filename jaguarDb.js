@@ -113,9 +113,12 @@ JaguarDb.prototype.insert = function(data, cb) {
   this.indexData.nextId++;
 
   // update index 
-  var indexDoc = {};
-  indexDoc._id = data._id;
-  // TODO: add indexes fields, e.g. indexDoc.ix1 = data.ix1;
+  var indexes = this.indexData.indexes;
+  var indexDoc = { _id: data._id};
+	for(var i=0; i<indexes.length; i++) {
+		var indexField = indexes[i];
+		indexDoc[indexField] = data[indexField];
+	}
   this.indexData.documents.push(indexDoc);
 
   var dbPath = this.dbPath;
@@ -147,26 +150,58 @@ JaguarDb.prototype.insert = function(data, cb) {
 // Update an existing document in the database
 // ----------------------------------
 JaguarDb.prototype.update = function(data, cb) {
+	var i;
+
   console.log('about to update');
   if(data._id === undefined) {
     cb('No _id was found on document');
     return;
   }
 
-  // TODO: the index file will need to be updated when we implement indexes
+  // find the document to update on the index
+  var indexDoc = null;
+	var documents = this.indexData.documents;
+	for(i=0; i<documents.length; i++) {
+		if(documents[i]._id === data._id) {
+			indexDoc = documents[i];
+			break;
+		}
+	}
 
-  // save full document
-  var documentFile = path.join(this.dbPath, data._id.toString() + '.json');
-  fs.writeFile(documentFile, JSON.stringify(data), function(err) {
+	if(indexDoc === null) {
+		cb("The _id to update [" + data._id + "] was not found.");
+		return;
+	}
+
+	// update the document in the index
+	var indexes = this.indexData.indexes;
+	for(i=0; i<indexes.length; i++) {
+		var indexField = indexes[i];
+		indexDoc[indexField] = data[indexField];
+	}
+
+  fs.writeFile(this.indexFile, JSON.stringify(this.indexData), function(err) {
     if (err) {
-      _log('ERROR', 'Could not update document. Error: ' + err);
+      _log('ERROR', 'Could not update index file. Error: ' + err);
       cb(err);
     }
     else {
-      _log('Document updated: '+ documentFile);
-      cb(null, data);
-    }
-  });
+      _log('Index file updated');
+      // save full document
+		  var documentFile = path.join(this.dbPath, data._id.toString() + '.json');
+		  fs.writeFile(documentFile, JSON.stringify(data), function(err) {
+		    if (err) {
+		      _log('ERROR', 'Could not update document. Error: ' + err);
+		      cb(err);
+		    }
+		    else {
+		      _log('Document updated: '+ documentFile);
+		      cb(null, data);
+		    }
+		  });
+		}
+	});
+
 }
 
 
@@ -208,6 +243,17 @@ JaguarDb.prototype.findById = function(id, cb) {
       cb(null, document);
     }
   });
+}
+
+
+JaguarDb.prototype.findByIdSync = function(id) {
+  var file = path.join(this.dbPath, id.toString() + '.json');   
+  if(!fs.existsSync(file)) {
+  	return null;
+  }
+  var text = fs.readFileSync(file);
+ 	var document = JSON.parse(text);
+ 	return document;
 }
 
 
@@ -319,6 +365,34 @@ JaguarDb.prototype.isMatch = function(document, queryFields, queryValues) {
   }
   return true;
 } 
+
+
+// ----------------------------------
+// Create an index
+// ----------------------------------
+JaguarDb.prototype.ensureIndexSync = function(field, force) {
+	
+	if(this.indexData.indexes.indexOf(field) == -1) {
+		this.indexData.indexes.push(field);
+	}
+	else {
+		// index is already been created 
+		if(force !== true) {
+			return;
+		}
+	}
+
+	_log("Populating index [" + field + "]...");	
+	for(i=0; i<this.indexData.documents.length; i++) {
+		var indexDoc = this.indexData.documents[i];
+		var doc = this.findByIdSync(indexDoc._id);
+		indexDoc[field] = doc[field];
+	}
+
+	_log("Saving index...");	
+  fs.writeFileSync(this.indexFile, JSON.stringify(this.indexData));
+  _log("Index created.")
+}
 
 
 exports.JaguarDb = JaguarDb;
