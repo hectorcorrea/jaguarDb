@@ -255,6 +255,7 @@ JaguarDb.prototype.update = function(data, cb) {
 		indexDoc[indexField] = data[indexField];
 	}
 
+  var documentFile = path.join(this.dbPath, data._id.toString() + '.json');
   fs.writeFile(this.indexFile, JSON.stringify(this.indexData), function(err) {
     if (err) {
       _log('ERROR', 'Could not update index file. Error: ' + err);
@@ -263,7 +264,6 @@ JaguarDb.prototype.update = function(data, cb) {
     else {
       _log('Index file updated');
       // save full document
-		  var documentFile = path.join(this.dbPath, data._id.toString() + '.json');
 		  fs.writeFile(documentFile, JSON.stringify(data), function(err) {
 		    if (err) {
 		      _log('ERROR', 'Could not update document. Error: ' + err);
