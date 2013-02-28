@@ -1,5 +1,5 @@
-var jaguarDb = require('./jaguarDb').jaguarDb;
-var db = new jaguarDb();
+var JaguarDb = require('./jaguarDb').JaguarDb;
+var db = new JaguarDb();
 
 db.connect('./data', function(err) {
 

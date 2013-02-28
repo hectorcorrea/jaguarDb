@@ -17,8 +17,8 @@ Basic Samples
 -------------
 **demoAdd.js** shows how to add data to a brand new database. The basic structure is as follow.
 
-    var jaguarDb = require('./jaguarDb').jaguarDb;
-    var db = new jaguarDb();
+    var JaguarDb = require('./jaguarDb').JaguarDb;
+    var db = new JaguarDb();
     db.connect('./data', function(err) {
       if(err) {
         // handle error
@@ -33,8 +33,8 @@ Basic Samples
 
 **demoFind.js** shows how to query documents from the database. The basic structure is as follow: 
 
-    var jaguarDb = require('./jaguarDb').jaguarDb;
-    var db = new jaguarDb();
+    var JaguarDb = require('./jaguarDb').JaguarDb;
+    var db = new JaguarDb();
     db.connect('./data', function(err) {
       if(err) {
         // handle error
@@ -59,8 +59,8 @@ Sample using Express
     var express = require('express');
     var app = express();
 
-    var jaguarDb = require('./jaguarDb').jaguarDb;
-    var db = new jaguarDb();
+    var JaguarDb = require('./jaguarDb').JaguarDb;
+    var db = new JaguarDb();
 
     db.connect('./data', function(err) {
       if(err) {
@@ -86,9 +86,12 @@ Sample using Express
 
 Storage
 -------
-Data is stored in one directory per database. A master file "index.json" contains the list of documents in the database plus other general information about the database. One "n.json" file is created for each document.
+Data is stored in one directory per database. A master file "index.json" contains the list of documents in the database plus other general information about the database. 
 
 Each document is automatically assigned an _id field with a sequential value. 
+
+One individual JSON file is created for each document, these files are named "n.json" where n is the value of the _id for the document.
+
 
 
 Limitations (a lot)
@@ -96,6 +99,12 @@ Limitations (a lot)
 This library is meant to be used in a single-user environment as it has no multi-user provisions. 
 
 Transactions are not supported.
+
+No sorting or aggregations are provided.
+
+Except for findById, all find operations are sequential (i.e. no binary tree or btree are used for searching.)
+
+
 
 
 Future enhancements
@@ -118,6 +127,9 @@ Allow for sorting operations.
 
 Questions, comments, thoughts?
 ------------------------------
-This is a very rough work in progress. Feel free to contact me with 
-questions or comments about this project.
+This is a very rough work in progress. 
+
+Feel free to contact me at hector@hectorcorrea.com with questions or comments about this project.
+
+
 
