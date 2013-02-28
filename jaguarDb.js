@@ -34,6 +34,62 @@ var _isEmptyObject = function (obj) {
   return Object.getOwnPropertyNames(obj).length === 0;
 }
 
+
+// Given a list of documents creates a new list of documents but
+// only with the fields indicated in fieldsToProject.
+var _projectFields = function(documents, fieldsToProject, cb) {
+  _log('filter fields called');
+  var isAllFields = _isEmptyObject(fieldsToProject);
+  if(isAllFields) {
+    // No filter required, we are done.
+    cb(null, documents);
+    return;
+  }
+
+  var fields = Object.getOwnPropertyNames(fieldsToProject);
+  if(fields.indexOf('_id') === -1) {
+    // Make sure the _id field is always returned. 
+    fields.push('_id');
+  }
+
+  var i, j;
+  var filteredDocs = [];
+  for(i=0; i<documents.length; i++) {
+
+    var fullDoc = documents[i];
+    var doc = {};
+    for(j=0; j<fields.length; j++) {
+      var field = fields[j];
+      if(fullDoc.hasOwnProperty(field)) {
+        doc[field] = fullDoc[field];
+      }
+    }
+
+    filteredDocs.push(doc);
+  }
+  cb(null, filteredDocs);
+}
+
+
+// See if the document matches the field & values passed. 
+var _isMatch = function(document, queryFields, queryValues) {
+  for(var i=0; i<queryFields.length; i++) {
+    var field = queryFields[i];
+    if(document.hasOwnProperty(field)) {
+      if (document[field] !== queryValues[field]) {
+        // Field present but values does not match.
+        return false;
+      }
+    }
+    else {
+      // Field not present
+      return false;
+    }
+  }
+  return true;
+} 
+
+
 // ----------------------------------
 // Connect to a database
 // ----------------------------------
@@ -216,16 +272,19 @@ JaguarDb.prototype.find = function(query, fields, cb) {
   var isFindAll = _isEmptyObject(query);
   if(isFindAll) {
     _log('Find All');
-    this._getAll(this._filterFields, fields, cb); 
+    this._getAll(fields, cb); 
     return;
   }
 
   _log('Find Some');
-  this._getSome(query, this._filterFields, fields, cb);
+  this._getSome(query, fields, cb);
 }
 
 
 JaguarDb.prototype.findById = function(id, cb) {
+	// Go straight after the file with the document
+	// information (i.e. don't even bother looking 
+	// at the index.)
   var file = path.join(this.dbPath, id.toString() + '.json');   
   fs.readFile(file, function(err, text) {
     if(err) {
@@ -247,6 +306,9 @@ JaguarDb.prototype.findById = function(id, cb) {
 
 
 JaguarDb.prototype.findByIdSync = function(id) {
+	// Go straight after the file with the document
+	// information (i.e. don't even bother looking 
+	// at the index.)
   var file = path.join(this.dbPath, id.toString() + '.json');   
   if(!fs.existsSync(file)) {
   	return null;
@@ -257,41 +319,7 @@ JaguarDb.prototype.findByIdSync = function(id) {
 }
 
 
-// Internal method.
-// Given a list of documents creates a new list of documents but
-// only with the fields indicated in filteredFields.
-JaguarDb.prototype._filterFields = function(documents, filterFields, cb) {
-  _log('filter fields called');
-  var isAllFields = _isEmptyObject(filterFields);
-  if(isAllFields) {
-    // No filter required, we are done.
-    cb(null, documents);
-    return;
-  }
 
-  var fields = Object.getOwnPropertyNames(filterFields);
-  if(fields.indexOf('_id') === -1) {
-    // Make sure the _id field is always returned. 
-    fields.push('_id');
-  }
-
-  var i, j;
-  var filteredDocs = [];
-  for(i=0; i<documents.length; i++) {
-
-    var fullDoc = documents[i];
-    var doc = {};
-    for(j=0; j<fields.length; j++) {
-      var field = fields[j];
-      if(fullDoc.hasOwnProperty(field)) {
-        doc[field] = fullDoc[field];
-      }
-    }
-
-    filteredDocs.push(doc);
-  }
-  cb(null, filteredDocs);
-}
 
 
 // Internal method.
@@ -304,7 +332,7 @@ JaguarDb.prototype._filterFields = function(documents, filterFields, cb) {
 //    shouldn't need to read the entire document if the
 //    information exists on the index file (this is a very
 //    long term goal.) Most likely YANGI.
-JaguarDb.prototype._getAll = function(filter, fields, cb) {
+JaguarDb.prototype._getAll = function(fields, cb) {
   var i;
   var documents = this.indexData.documents;
   var foundDocs = [];
@@ -317,7 +345,7 @@ JaguarDb.prototype._getAll = function(filter, fields, cb) {
     document = JSON.parse(text);
     foundDocs.push(document);
   }
-  filter(foundDocs, fields, cb);
+  _projectFields(foundDocs, fields, cb);
 }
 
 
@@ -325,7 +353,7 @@ JaguarDb.prototype._getAll = function(filter, fields, cb) {
 // Fetches a subset of the documents in the database based on a given query.
 // Only exact matches on queries are supported (i.e. field = 'value')
 // Other types of queries are NOT supported yet. (i.e. field != value or field >= 'value')
-JaguarDb.prototype._getSome = function(query, filter, fields, cb) {
+JaguarDb.prototype._getSome = function(query, fields, cb) {
   var _id, file, text, document;
   var filterFields = Object.getOwnPropertyNames(query);
   var documents = this.indexData.documents;
@@ -336,35 +364,17 @@ JaguarDb.prototype._getSome = function(query, filter, fields, cb) {
     _id = documents[i]._id;
     file = path.join(this.dbPath, _id.toString() + '.json');
     text = fs.readFileSync(file); // Blocking call
-    // _log('  Read ' + file);
-    // _log('  ' + text);
     document = JSON.parse(text);
-    // console.dir(document);
-    if(this.isMatch(document, filterFields, query)) {
+    if(_isMatch(document, filterFields, query)) {
       foundDocs.push(document);
     }
   }
   _log('done reading');
-  filter(foundDocs, fields, cb);
+  _projectFields(foundDocs, fields, cb);
 }
 
 
-JaguarDb.prototype.isMatch = function(document, queryFields, queryValues) {
-  for(var i=0; i<queryFields.length; i++) {
-    var field = queryFields[i];
-    if(document.hasOwnProperty(field)) {
-      if (document[field] !== queryValues[field]) {
-        // Field present but values does not match.
-        return false;
-      }
-    }
-    else {
-      // Field not present
-      return false;
-    }
-  }
-  return true;
-} 
+
 
 
 // ----------------------------------
@@ -389,7 +399,7 @@ JaguarDb.prototype.ensureIndexSync = function(field, force) {
 		indexDoc[field] = doc[field];
 	}
 
-	_log("Saving index...");	
+	_log("Saving index [" + field + "]...");
   fs.writeFileSync(this.indexFile, JSON.stringify(this.indexData));
   _log("Index created.")
 }

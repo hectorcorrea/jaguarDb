@@ -8,7 +8,7 @@ The goal is to provide a quick and dirty way of storing information for small pr
 
 The API mimics MongoDB’s API to allow for easy migration of applications using jaguarDb to a real database. Also, the fact the MongoDB has a kickass API makes it an great model to follow.
 
-This database does not support transactions or any of the ACID properties. In fact you should not even consider it a database. 
+This database does not support transactions or any of the ACID properties. In fact you should not even consider it a database. It's basically a glorified wrapper around JSON.stringfy and JSON.parse tailored to mimic a database. 
 
 The API for jaguarDb is asynchronous so that the code using it can easily migrated to use a real database. I might provide a synchronous API later on to make its use much simpler, particularly for unit tests or batch processes.
 
