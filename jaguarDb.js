@@ -71,9 +71,28 @@ var _projectFields = function(documents, fieldsToProject, cb) {
 }
 
 
+var _isCoveredQuery = function(indexes, fields) {
+	if(indexes.length === 0) {
+		return false;
+	}
+  var i;
+  for(i = 0; i < fields.length; i++) {
+  	var field = fields[i];
+  	if(field == "_id") {
+  		continue;
+  	}
+  	if(indexes.indexOf(field) === -1) {
+  		return false;
+  	}
+	}
+	return true;
+}
+
+
 // See if the document matches the field & values passed. 
 var _isMatch = function(document, queryFields, queryValues) {
-  for(var i=0; i<queryFields.length; i++) {
+  var i;
+  for(i = 0; i < queryFields.length; i++) {
     var field = queryFields[i];
     if(document.hasOwnProperty(field)) {
       if (document[field] !== queryValues[field]) {
@@ -164,7 +183,7 @@ JaguarDb.prototype._loadIndexData = function(_this, cb) {
 // Insert a new document in the database
 // ----------------------------------
 JaguarDb.prototype.insert = function(data, cb) {
-  console.log('about to insert');
+  _log('About to insert');
   data._id = this.indexData.nextId;
   this.indexData.nextId++;
 
@@ -208,7 +227,7 @@ JaguarDb.prototype.insert = function(data, cb) {
 JaguarDb.prototype.update = function(data, cb) {
 	var i;
 
-  console.log('about to update');
+  _log('About to update');
   if(data._id === undefined) {
     cb('No _id was found on document');
     return;
@@ -265,7 +284,6 @@ JaguarDb.prototype.update = function(data, cb) {
 // Find documents in the database
 // ----------------------------------
 JaguarDb.prototype.find = function(query, fields, cb) {
-
   query = query || {};    // default to select all documents
   fields = fields || {};  // default to select all fields
 
@@ -277,6 +295,7 @@ JaguarDb.prototype.find = function(query, fields, cb) {
   }
 
   _log('Find Some');
+
   this._getSome(query, fields, cb);
 }
 
@@ -297,6 +316,7 @@ JaguarDb.prototype.findById = function(id, cb) {
         cb(err); 
       }
     }
+
     else {
       var document = JSON.parse(text);
       cb(null, document);
@@ -317,9 +337,6 @@ JaguarDb.prototype.findByIdSync = function(id) {
  	var document = JSON.parse(text);
  	return document;
 }
-
-
-
 
 
 // Internal method.
@@ -349,6 +366,9 @@ JaguarDb.prototype._getAll = function(fields, cb) {
 }
 
 
+
+
+
 // Internal method.
 // Fetches a subset of the documents in the database based on a given query.
 // Only exact matches on queries are supported (i.e. field = 'value')
@@ -358,6 +378,10 @@ JaguarDb.prototype._getSome = function(query, fields, cb) {
   var filterFields = Object.getOwnPropertyNames(query);
   var documents = this.indexData.documents;
   var foundDocs = [];
+
+
+  var isCoveredQuery = _isCoveredQuery(this.indexData.indexes, fields);
+  _log("Covered query: " + (isCoveredQuery ? "yes" : "no"));
 
   _log('start reading');
   for(var i=0; i<documents.length; i++) {
@@ -370,6 +394,7 @@ JaguarDb.prototype._getSome = function(query, fields, cb) {
     }
   }
   _log('done reading');
+
   _projectFields(foundDocs, fields, cb);
 }
 

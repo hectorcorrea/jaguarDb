@@ -10,7 +10,7 @@ db.connect('./data', function(err) {
 
   console.log('Connected!');
 
-  var query = {title: 'hello world'};
+  var query = {title: 'hello'};
   var fields = {_id: 1, title: 1};
   db.find(query, fields, function(err, documents) {
     if(err) {

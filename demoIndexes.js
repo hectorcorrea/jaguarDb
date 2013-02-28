@@ -10,7 +10,7 @@ db.connect('./data', function(err) {
 
   console.log('Connected!');
   db.ensureIndexSync('title');
-  db.ensureIndexSync('insertedOn');
+  // db.ensureIndexSync('insertedOn');
 
   var data = {title: 'hello', content: 'blah blah blah', insertedOn: new Date()};
   db.insert(data, function(err, insertedData) {
