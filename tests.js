@@ -1,6 +1,6 @@
 console.log('All tests passed if this program ends with == OK ==');
 
-var JaguarDb = require('./jaguarDb').JaguarDb;
+var JaguarDb = require('./lib/jaguarDb').JaguarDb;
 var db = new JaguarDb();
 var dbName = 'testdb';
 

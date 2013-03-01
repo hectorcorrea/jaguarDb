@@ -1,0 +1,21 @@
+{
+  "name": "jaguarDb",
+  "version": "0.1.0",
+  "author": "Hector Correa <hector@hectorcorrea.com>",
+  "description": "The simplest in-process database for Node.js that could possible work.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hectorcorrea/jaguarDb.git"
+  },
+  "keywords": [
+    "database",
+    "embedded database",
+    "small database",
+    "javascript database",
+    "in-process database"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.8"
+  }
+}
