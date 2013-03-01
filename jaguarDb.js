@@ -42,6 +42,8 @@ JaguarDb.prototype.connect = function(_dbPath, cb) {
 }
 
 
+// Internal method.
+// Loads the "index.json" file to memory.
 JaguarDb.prototype._loadIndexData = function(_this, cb) {
   fs.exists(_this.indexFile, function(exists) {
     if (exists) {
@@ -79,9 +81,14 @@ JaguarDb.prototype._loadIndexData = function(_this, cb) {
 }
 
 
-// ----------------------------------
-// Insert a new document in the database
-// ----------------------------------
+// ----------------------------------------------------
+// Inserts a new document in the database
+// data is an object with the values to save.
+// Notes: 
+//    All values in this object are saved to the database.
+//    An _id value will always be assigned to the data object 
+//    before saving it (even if the object comes with one.)
+// ----------------------------------------------------
 JaguarDb.prototype.insert = function(data, cb) {
   util.log('About to insert');
   data._id = this.indexData.nextId;
@@ -121,9 +128,14 @@ JaguarDb.prototype.insert = function(data, cb) {
 }
 
 
-// ----------------------------------
-// Update an existing document in the database
-// ----------------------------------
+// ----------------------------------------------------
+// Updates an existing document in the database
+// data is an object with the values to save.
+// Notes: 
+//    All values in this object are saved to the database.
+//    The data object must come with an _id value and it must
+//    match with an existing document.
+// ----------------------------------------------------
 JaguarDb.prototype.update = function(data, cb) {
 	var i;
 
@@ -176,12 +188,22 @@ JaguarDb.prototype.update = function(data, cb) {
 		  });
 		}
 	});
-
 }
 
 
 // ----------------------------------
 // Find documents in the database
+//
+// Query is an object with the fields and values that will be
+// used to filter which documents will be selected.
+//    query = {fieldA: 'some value'}
+//
+// Fields is an object with the fields that will be selected.
+//    fields = {fieldA: 1, fieldB: 1, fieldX: 1}
+//
+// cb is a callback that will be called with the following
+// arguments: (err, documents)
+//
 // ----------------------------------
 JaguarDb.prototype.find = function(query, fields, cb) {
   query = query || {};    // default to select all documents
@@ -197,57 +219,13 @@ JaguarDb.prototype.find = function(query, fields, cb) {
 }
 
 
-JaguarDb.prototype.findById = function(id, cb) {
-	// Go straight after the file with the document
-	// information (i.e. don't even bother looking 
-	// at the index.)
-  var file = path.join(this.dbPath, id.toString() + '.json');   
-  fs.readFile(file, function(err, text) {
-    if(err) {
-      if (err.code === 'ENOENT'){
-        // document not found
-        cb(null, null); 
-      }
-      else {    
-        // a true other error     
-        cb(err); 
-      }
-    }
-
-    else {
-      var document = JSON.parse(text);
-      cb(null, document);
-    }
-  });
-}
-
-
-JaguarDb.prototype.findByIdSync = function(id) {
-	// Go straight after the file with the document
-	// information (i.e. don't even bother looking 
-	// at the index.)
-  var file = path.join(this.dbPath, id.toString() + '.json');   
-  if(!fs.existsSync(file)) {
-  	return null;
-  }
-  var text = fs.readFileSync(file);
- 	var document = JSON.parse(text);
- 	return document;
-}
-
-
 // Internal method.
 // Fetches all documents in the database.
-// fields is an object with the fields to include, for example
-//  {title: 1, createdOn: 1}
+// See find() for more information.
 //
 // Notes: 
-//    This method blocks!!!
+//    This method blocks if the fields selected are not in the indices!
 //    Eventually I want to make it async.
-//    Also, if I were to implement indexes then we 
-//    shouldn't need to read the entire document if the
-//    information exists on the index file (this is a very
-//    long term goal.) Most likely YANGI.
 JaguarDb.prototype._getAll = function(fields, cb) {
   var i, _id, file, text, document;
   var documents = this.indexData.documents;
@@ -277,10 +255,18 @@ JaguarDb.prototype._getAll = function(fields, cb) {
 
 
 // Internal method.
-// Fetches a subset of the documents in the database based 
-// on a given query. 
-// Only exact matches on queries are supported (i.e. field = 'value')
-// Other types of queries are NOT supported yet. (i.e. field != value or field >= 'value')
+// Fetches a subset of the documents in the database.
+// See find() for more information.
+//
+// Notes: 
+//    This method blocks if the fields selected or the field
+//    to query by are not in the indices!
+//    Eventually I want to make it async.
+//
+//    Only exact matches on queries are supported 
+//    (i.e. field = 'value')
+//    Other types of queries are NOT supported yet. 
+//    (i.e. field != value or field >= 'value')
 JaguarDb.prototype._getSome = function(query, fields, cb) {
   var _id, file, text, document, i;
   var documents = this.indexData.documents;
@@ -342,8 +328,54 @@ JaguarDb.prototype._getSome = function(query, fields, cb) {
 }
 
 
+// ----------------------------------------
+// Find one document in the database by Id.
+// All the fields of the document are read. 
+// ----------------------------------------
+JaguarDb.prototype.findById = function(id, cb) {
+  // Go straight after the file with the document
+  // information (i.e. don't even bother looking 
+  // at the index.)
+  var file = path.join(this.dbPath, id.toString() + '.json');   
+  fs.readFile(file, function(err, text) {
+    if(err) {
+      if (err.code === 'ENOENT'){
+        // document not found
+        cb(null, null); 
+      }
+      else {    
+        // a true other error     
+        cb(err); 
+      }
+    }
+    else {
+      var document = JSON.parse(text);
+      cb(null, document);
+    }
+  });
+}
+
+
+JaguarDb.prototype.findByIdSync = function(id) {
+  // Go straight after the file with the document
+  // information (i.e. don't even bother looking 
+  // at the index.)
+  var file = path.join(this.dbPath, id.toString() + '.json');   
+  if(!fs.existsSync(file)) {
+    return null;
+  }
+  var text = fs.readFileSync(file);
+  var document = JSON.parse(text);
+  return document;
+}
+
+
 // ----------------------------------
 // Create an index
+// Field is a string with the name of the field to index.
+// When force is true the index will be recreated if already
+// exists. When force is false the index will only be created
+// if it does not exist already.
 // ----------------------------------
 JaguarDb.prototype.ensureIndexSync = function(field, force) {
 	
