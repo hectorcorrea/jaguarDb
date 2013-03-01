@@ -189,12 +189,9 @@ JaguarDb.prototype.find = function(query, fields, cb) {
 
   var isFindAll = util.isEmptyObject(query);
   if(isFindAll) {
-    util.log('Find All');
     this._getAll(fields, cb); 
     return;
   }
-
-  util.log('Find Some');
 
   this._getSome(query, fields, cb);
 }
@@ -241,6 +238,8 @@ JaguarDb.prototype.findByIdSync = function(id) {
 
 // Internal method.
 // Fetches all documents in the database.
+// fields is an object with the fields to include, for example
+//  {title: 1, createdOn: 1}
 //
 // Notes: 
 //    This method blocks!!!
@@ -250,56 +249,97 @@ JaguarDb.prototype.findByIdSync = function(id) {
 //    information exists on the index file (this is a very
 //    long term goal.) Most likely YANGI.
 JaguarDb.prototype._getAll = function(fields, cb) {
-  var i;
+  var i, _id, file, text, document;
   var documents = this.indexData.documents;
+  var indexes = this.indexData.indexes;
+  var selectFields = Object.getOwnPropertyNames(fields);
   var foundDocs = [];
-  var _id, file, text, document;
+
+  var isCoveredFields = util.isCoveredQuery(indexes, selectFields);
+  util.log('getAll ' + (isCoveredFields ? '(covered query)': '(full table scan)'));
 
   for(i=0; i<documents.length; i++) {
-    _id = documents[i]._id;
-    file = path.join(this.dbPath, _id.toString() + '.json');
-    text = fs.readFileSync(file); // Blocking call
-    document = JSON.parse(text);
+    if(isCoveredFields) {
+      // We've got all the data that we need in the indexes.
+      document = documents[i];
+    }
+    else {
+      // Read the full document to get the data.
+      _id = documents[i]._id;
+      file = path.join(this.dbPath, _id.toString() + '.json');
+      text = fs.readFileSync(file); // Blocking call
+      document = JSON.parse(text);
+    }
     foundDocs.push(document);
   }
   util.projectFields(foundDocs, fields, cb);
 }
 
 
-
-
-
 // Internal method.
-// Fetches a subset of the documents in the database based on a given query.
+// Fetches a subset of the documents in the database based 
+// on a given query. 
 // Only exact matches on queries are supported (i.e. field = 'value')
 // Other types of queries are NOT supported yet. (i.e. field != value or field >= 'value')
 JaguarDb.prototype._getSome = function(query, fields, cb) {
-  var _id, file, text, document;
-  var filterFields = Object.getOwnPropertyNames(query);
+  var _id, file, text, document, i;
   var documents = this.indexData.documents;
+  var indexes = this.indexData.indexes;
+  var queryFields = Object.getOwnPropertyNames(query);
+  var selectFields = Object.getOwnPropertyNames(fields);
   var foundDocs = [];
 
+  var isCoveredQuery = util.isCoveredQuery(indexes, queryFields);
+  var isCoveredFields = util.isCoveredQuery(indexes, selectFields);
 
-  var isCoveredQuery = util.isCoveredQuery(this.indexData.indexes, fields);
-  util.log("Covered query: " + (isCoveredQuery ? "yes" : "no"));
-
-  util.log('start reading');
-  for(var i=0; i<documents.length; i++) {
-    _id = documents[i]._id;
-    file = path.join(this.dbPath, _id.toString() + '.json');
-    text = fs.readFileSync(file); // Blocking call
-    document = JSON.parse(text);
-    if(util.isMatch(document, filterFields, query)) {
-      foundDocs.push(document);
+  if(isCoveredQuery && isCoveredFields) {
+    // Query and selection can be satisfied with the index alone
+    // and therefore we don't need to read full documents at all!
+    util.log('getSome (covered query)');
+    for(i=0; i<documents.length; i++) {
+      document = documents[i];
+      if(util.isMatch(document, queryFields, query)) {
+        foundDocs.push(document);
+      }
     }
   }
-  util.log('done reading');
+  else {
+    if(isCoveredQuery) {
+      // Query can be satisfied with the indexes but not
+      // the data selection. Read the full document for
+      // those documents that meet the query criteria.
+      util.log('getSome (partial table scan)')
+      for(i=0; i<documents.length; i++) {
+        document = documents[i];
+        if(util.isMatch(document, queryFields, query)) {
+          // read the full document 
+          _id = documents[i]._id;
+          util.log('reading full document %s', _id);
+          file = path.join(this.dbPath, _id.toString() + '.json');
+          text = fs.readFileSync(file); // Blocking call
+          document = JSON.parse(text);
+          foundDocs.push(document);
+        }
+      }
+    }
+    else {
+      // Read the full document for all documents because 
+      // the query cannot be satisfied with the indexes.
+      util.log('getSome (full table scan)')
+      for(i=0; i<documents.length; i++) {
+        _id = documents[i]._id;
+        file = path.join(this.dbPath, _id.toString() + '.json');
+        text = fs.readFileSync(file); // Blocking call
+        document = JSON.parse(text);
+        if(util.isMatch(document, queryFields, query)) {
+          foundDocs.push(document);
+        }
+      }
+    }
+  }
 
   util.projectFields(foundDocs, fields, cb);
 }
-
-
-
 
 
 // ----------------------------------

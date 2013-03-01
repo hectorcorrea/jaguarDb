@@ -17,7 +17,7 @@ var log = function(type, message) {
   }
 }
 
-
+// Returns true if an object has no properties, e.g. {}
 // stolen from http://stackoverflow.com/a/2673229/446681
 var isEmptyObject = function (obj) {
   return Object.getOwnPropertyNames(obj).length === 0;
@@ -59,6 +59,14 @@ var projectFields = function(documents, fieldsToProject, cb) {
 }
 
 
+// Returns true if the all the fields indicated are
+// in the indexes array.
+// 
+// For example, if 
+//    indexes = ["field1", "field2"]
+//    fields = ["field1", "field3"]
+// then this function will return false
+//
 var isCoveredQuery = function(indexes, fields) {
   if(indexes.length === 0) {
     return false;
