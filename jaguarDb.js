@@ -1,119 +1,19 @@
 var path = require('path');
 var fs = require('fs');
+var util = require('./util');
 
 var JaguarDb = function() {
   this.dbPath = null;
   this.indexFile = null;
   this.indexData = { nextId: 1, indexes: [], documents: [] };
-  this.logging = true;
 }
-
-
-// Use our own custom internal logger so that we don't depend 
-// on any other library. We'll probably get rid of this once 
-// this project reaches certain maturity. A better approach
-// would be to raise events as things happen rather than 
-// calling the logger but that's for another day.
-var _log = function(type, message) {
-  var logging = true;
-  if(logging) {
-    if (message === undefined) {
-      // default to INFO. The message comes in the first 
-      // parameter (awkward, but functional).
-      console.log('INFO: %s', type);
-    }
-    else {
-      console.log('%s: %s', type, message)
-    }
-  }
-}
-
-
-// stolen from http://stackoverflow.com/a/2673229/446681
-var _isEmptyObject = function (obj) {
-  return Object.getOwnPropertyNames(obj).length === 0;
-}
-
-
-// Given a list of documents creates a new list of documents but
-// only with the fields indicated in fieldsToProject.
-var _projectFields = function(documents, fieldsToProject, cb) {
-  _log('filter fields called');
-  var isAllFields = _isEmptyObject(fieldsToProject);
-  if(isAllFields) {
-    // No filter required, we are done.
-    cb(null, documents);
-    return;
-  }
-
-  var fields = Object.getOwnPropertyNames(fieldsToProject);
-  if(fields.indexOf('_id') === -1) {
-    // Make sure the _id field is always returned. 
-    fields.push('_id');
-  }
-
-  var i, j;
-  var filteredDocs = [];
-  for(i=0; i<documents.length; i++) {
-
-    var fullDoc = documents[i];
-    var doc = {};
-    for(j=0; j<fields.length; j++) {
-      var field = fields[j];
-      if(fullDoc.hasOwnProperty(field)) {
-        doc[field] = fullDoc[field];
-      }
-    }
-
-    filteredDocs.push(doc);
-  }
-  cb(null, filteredDocs);
-}
-
-
-var _isCoveredQuery = function(indexes, fields) {
-	if(indexes.length === 0) {
-		return false;
-	}
-  var i;
-  for(i = 0; i < fields.length; i++) {
-  	var field = fields[i];
-  	if(field == "_id") {
-  		continue;
-  	}
-  	if(indexes.indexOf(field) === -1) {
-  		return false;
-  	}
-	}
-	return true;
-}
-
-
-// See if the document matches the field & values passed. 
-var _isMatch = function(document, queryFields, queryValues) {
-  var i;
-  for(i = 0; i < queryFields.length; i++) {
-    var field = queryFields[i];
-    if(document.hasOwnProperty(field)) {
-      if (document[field] !== queryValues[field]) {
-        // Field present but values does not match.
-        return false;
-      }
-    }
-    else {
-      // Field not present
-      return false;
-    }
-  }
-  return true;
-} 
 
 
 // ----------------------------------
 // Connect to a database
 // ----------------------------------
 JaguarDb.prototype.connect = function(_dbPath, cb) {
-  _log('Connecting to: ' + _dbPath);
+  util.log('Connecting to: ' + _dbPath);
   this.dbPath = _dbPath;
   this.indexFile = path.join(this.dbPath, 'index.json');
   var _this = this;
@@ -122,7 +22,7 @@ JaguarDb.prototype.connect = function(_dbPath, cb) {
   fs.stat(_dbPath, function(err, stat) {
     if (err) {
       if(err.code == 'ENOENT') {
-        _log('Creating directory ' + _this.dbPath)
+        util.log('Creating directory ' + _this.dbPath)
         fs.mkdirSync(_this.dbPath);  // FYI: blocking call
       }
       else {
@@ -148,11 +48,11 @@ JaguarDb.prototype._loadIndexData = function(_this, cb) {
 
       fs.readFile(_this.indexFile, function(err, data) {
         if(err) {
-          _log('Index file already exists, but could not be read.');
+          util.log('Index file already exists, but could not be read.');
           cb(err);
         }
         else {
-          _log('Index file read');
+          util.log('Index file read');
           _this.indexData = JSON.parse(data);
           cb(null);
         }
@@ -162,14 +62,14 @@ JaguarDb.prototype._loadIndexData = function(_this, cb) {
     else {
 
       // create index file
-      _log('Creating index file: ' + _this.indexFile);
+      util.log('Creating index file: ' + _this.indexFile);
       fs.writeFile(_this.indexFile, JSON.stringify(_this.indexData), function(err) {
         if (err) {
-          _log('ERROR', 'Could not create index file. Error: ' + err);
+          util.log('ERROR', 'Could not create index file. Error: ' + err);
           cb(err);
         }
         else {
-          _log('Index file created');
+          util.log('Index file created');
           cb(null);
         }
       });
@@ -183,7 +83,7 @@ JaguarDb.prototype._loadIndexData = function(_this, cb) {
 // Insert a new document in the database
 // ----------------------------------
 JaguarDb.prototype.insert = function(data, cb) {
-  _log('About to insert');
+  util.log('About to insert');
   data._id = this.indexData.nextId;
   this.indexData.nextId++;
 
@@ -199,20 +99,20 @@ JaguarDb.prototype.insert = function(data, cb) {
   var dbPath = this.dbPath;
   fs.writeFile(this.indexFile, JSON.stringify(this.indexData), function(err) {
     if (err) {
-      _log('ERROR', 'Could not update index file. Error: ' + err);
+      util.log('ERROR', 'Could not update index file. Error: ' + err);
       cb(err);
     }
     else {
-      _log('Index file updated');
+      util.log('Index file updated');
       // save full document
       var documentFile = path.join(dbPath, data._id.toString() + '.json');
       fs.writeFile(documentFile, JSON.stringify(data), function(err) {
         if (err) {
-          _log('ERROR', 'Could not insert document. Error: ' + err);
+          util.log('ERROR', 'Could not insert document. Error: ' + err);
           cb(err);
         }
         else {
-          _log('Document inserted: ' + documentFile);
+          util.log('Document inserted: ' + documentFile);
           cb(null, data);
         }
       });
@@ -227,7 +127,7 @@ JaguarDb.prototype.insert = function(data, cb) {
 JaguarDb.prototype.update = function(data, cb) {
 	var i;
 
-  _log('About to update');
+  util.log('About to update');
   if(data._id === undefined) {
     cb('No _id was found on document');
     return;
@@ -258,19 +158,19 @@ JaguarDb.prototype.update = function(data, cb) {
   var documentFile = path.join(this.dbPath, data._id.toString() + '.json');
   fs.writeFile(this.indexFile, JSON.stringify(this.indexData), function(err) {
     if (err) {
-      _log('ERROR', 'Could not update index file. Error: ' + err);
+      util.log('ERROR', 'Could not update index file. Error: ' + err);
       cb(err);
     }
     else {
-      _log('Index file updated');
+      util.log('Index file updated');
       // save full document
 		  fs.writeFile(documentFile, JSON.stringify(data), function(err) {
 		    if (err) {
-		      _log('ERROR', 'Could not update document. Error: ' + err);
+		      util.log('ERROR', 'Could not update document. Error: ' + err);
 		      cb(err);
 		    }
 		    else {
-		      _log('Document updated: '+ documentFile);
+		      util.log('Document updated: '+ documentFile);
 		      cb(null, data);
 		    }
 		  });
@@ -287,14 +187,14 @@ JaguarDb.prototype.find = function(query, fields, cb) {
   query = query || {};    // default to select all documents
   fields = fields || {};  // default to select all fields
 
-  var isFindAll = _isEmptyObject(query);
+  var isFindAll = util.isEmptyObject(query);
   if(isFindAll) {
-    _log('Find All');
+    util.log('Find All');
     this._getAll(fields, cb); 
     return;
   }
 
-  _log('Find Some');
+  util.log('Find Some');
 
   this._getSome(query, fields, cb);
 }
@@ -362,7 +262,7 @@ JaguarDb.prototype._getAll = function(fields, cb) {
     document = JSON.parse(text);
     foundDocs.push(document);
   }
-  _projectFields(foundDocs, fields, cb);
+  util.projectFields(foundDocs, fields, cb);
 }
 
 
@@ -380,22 +280,22 @@ JaguarDb.prototype._getSome = function(query, fields, cb) {
   var foundDocs = [];
 
 
-  var isCoveredQuery = _isCoveredQuery(this.indexData.indexes, fields);
-  _log("Covered query: " + (isCoveredQuery ? "yes" : "no"));
+  var isCoveredQuery = util.isCoveredQuery(this.indexData.indexes, fields);
+  util.log("Covered query: " + (isCoveredQuery ? "yes" : "no"));
 
-  _log('start reading');
+  util.log('start reading');
   for(var i=0; i<documents.length; i++) {
     _id = documents[i]._id;
     file = path.join(this.dbPath, _id.toString() + '.json');
     text = fs.readFileSync(file); // Blocking call
     document = JSON.parse(text);
-    if(_isMatch(document, filterFields, query)) {
+    if(util.isMatch(document, filterFields, query)) {
       foundDocs.push(document);
     }
   }
-  _log('done reading');
+  util.log('done reading');
 
-  _projectFields(foundDocs, fields, cb);
+  util.projectFields(foundDocs, fields, cb);
 }
 
 
@@ -417,16 +317,16 @@ JaguarDb.prototype.ensureIndexSync = function(field, force) {
 		}
 	}
 
-	_log("Populating index [" + field + "]...");	
+	util.log("Populating index [" + field + "]...");	
 	for(i=0; i<this.indexData.documents.length; i++) {
 		var indexDoc = this.indexData.documents[i];
 		var doc = this.findByIdSync(indexDoc._id);
 		indexDoc[field] = doc[field];
 	}
 
-	_log("Saving index [" + field + "]...");
+	util.log("Saving index [" + field + "]...");
   fs.writeFileSync(this.indexFile, JSON.stringify(this.indexData));
-  _log("Index created.")
+  util.log("Index created.")
 }
 
 
