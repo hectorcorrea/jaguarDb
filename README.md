@@ -96,16 +96,16 @@ The structure of the index.json file is more or less as follows:
 
     {
       "nextId":3,
-      "indexes":["title"],
+      "indexes":["field1"],
       "documents":[
-        {"_id":1,"title":"one"},
-        {"_id":2,"title":"two"}
+        {"_id":1,"field1":"valueA"},
+        {"_id":2,"field1":"valueB"}
       ]
     }
 
 The structure of a document file (say 1.json) is more or less as follows: 
 
-    {"_id":1, title":"one","content":"blah blah blah"}
+    {"_id":1, "field1"":"valueA","content":"blah blah blah"}
 
 
 Limitations (a lot)
