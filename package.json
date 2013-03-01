@@ -1,5 +1,5 @@
 {
-  "name": "jaguarDb",
+  "name": "jaguardb",
   "version": "0.1.0",
   "author": "Hector Correa <hector@hectorcorrea.com>",
   "description": "The simplest in-process database for Node.js that could possible work.",
