@@ -1,6 +1,6 @@
 jaguarDb
 ================
-The simplest in-process database in JavaScript that could possible work. 
+The simplest in-process database for Node.js that could possible work. 
 
 This library provides the ability to store information in a Node.js application emulating a simple document-oriented database and without requiring an external process to be running.
 
@@ -133,8 +133,6 @@ Add support for complex queries. Currently only exact match queries are allowed.
     // filter where fieldA == 'a' or fieldB == 'b'
     // filter where fieldA > 'a'
 
-
-Add support for "indexes". Fields indexed will be kept in index.json file so that we don't have to reach out for the individual file for each record when searching indexed fields.  
 
 Allow for sorting operations.
 
