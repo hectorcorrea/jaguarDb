@@ -1,6 +1,6 @@
 {
   "name": "jaguardb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Hector Correa <hector@hectorcorrea.com>",
   "description": "The simplest in-process database for Node.js that could possible work.",
   "repository": {
