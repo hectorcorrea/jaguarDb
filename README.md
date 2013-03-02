@@ -118,7 +118,7 @@ No sorting or aggregations are provided.
 
 Except for findById, all find operations are sequential (i.e. no binary tree or btree are used for searching.)
 
-
+Althought the API is asynchronous, several of the operations **do block** while executing. 
 
 
 Future enhancements
