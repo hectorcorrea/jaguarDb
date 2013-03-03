@@ -12,12 +12,22 @@ This database does not support transactions or any of the ACID properties. In fa
 
 The API for jaguarDb is asynchronous so that the code using it can easily migrated to use a real database. I might provide a synchronous API later on to make its use much simpler, particularly for unit tests or batch processes.
 
+Installation
+------------
+The easiest way to install it is via NPM:
+
+    npm install jaguardb
+
+Alternatively you can download the jaguarDb.js and jaguarUtil.js files from this repo and reference them from your project.
+
 
 Basic Samples
 -------------
-**demoAdd.js** shows how to add data to a brand new database. The basic structure is as follow.
+These following samples assume that you installed jaguarDb via NPM.
 
-    var JaguarDb = require('./jaguarDb').JaguarDb;
+**demoAdd.js** shows how to add data to a brand new database.  
+
+    var JaguarDb = require('jaguarDb').JaguarDb;
     var db = new JaguarDb();
     db.connect('./data', function(err) {
       if(err) {
@@ -33,7 +43,7 @@ Basic Samples
 
 **demoFind.js** shows how to query documents from the database. The basic structure is as follow: 
 
-    var JaguarDb = require('./jaguarDb').JaguarDb;
+    var JaguarDb = require('jaguarDb').JaguarDb;
     var db = new JaguarDb();
     db.connect('./data', function(err) {
       if(err) {
@@ -59,7 +69,7 @@ Sample using Express
     var express = require('express');
     var app = express();
 
-    var JaguarDb = require('./jaguarDb').JaguarDb;
+    var JaguarDb = require('jaguarDb').JaguarDb;
     var db = new JaguarDb();
 
     db.connect('./data', function(err) {
