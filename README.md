@@ -116,6 +116,8 @@ Transactions are not supported.
 
 No sorting or aggregations are provided.
 
+The contents of the index.json file is kept in memory. This include the keys to all the documents and the values of the indexes.
+
 Except for findById, all find operations are sequential (i.e. no binary tree or btree are used for searching.)
 
 Althought the API is asynchronous, several of the operations **do block** while executing. 
