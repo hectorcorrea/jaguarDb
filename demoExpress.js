@@ -2,13 +2,15 @@ var express = require('express');
 var app = express();
 
 var JaguarDb = require('./lib/jaguarDb').JaguarDb;
-var db = new JaguarDb();
+var db = new JaguarDb({logging:true});
 
 db.connect('./data', function(err) {
   if(err) {
     console.log('Could not connect to database: ' + err);
     return;
   }
+
+  db.ensureIndexSync('title');
 });
 
 app.use(express.bodyParser());
@@ -108,7 +110,7 @@ app.get('/:id', function(req, res){
 app.get('/', function(req, res){
 
   var query = {};
-  var fields = {};
+  var fields = {title: 1};
   db.find(query, fields, function(err, docs) {
 
     if(err) {
@@ -127,7 +129,6 @@ app.get('/', function(req, res){
         html += '<p>' + 
           '<b>id: ' + docs[i]._id + '</b><br/>' +
           '<b>title:</b> ' + url + '<br/>' +  
-          '<b>content:</b> ' + docs[i].content + 
           '</p>';
       }
     }

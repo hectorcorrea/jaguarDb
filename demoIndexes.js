@@ -1,5 +1,6 @@
 var JaguarDb = require('./lib/jaguarDb').JaguarDb;
-var db = new JaguarDb();
+var options = {logging: true};
+var db = new JaguarDb(options);
 
 db.connect('./data', function(err) {
 
