@@ -1,6 +1,6 @@
 {
   "name": "jaguardb",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": "Hector Correa <hector@hectorcorrea.com>",
   "description": "The simplest in-process database for Node.js that could possible work.",
   "repository": {
@@ -9,10 +9,12 @@
   },
   "keywords": [
     "database",
+    "embedded",
+    "in-process",
+    "small",
+    "database for node.js",
     "embedded database for node.js",
-    "small database for node.js",
-    "javascript database for node.js",
-    "embedded in-process database for node.js"
+    "javascript database for node.js"
   ],
   "license": "MIT",
   "engines": {
